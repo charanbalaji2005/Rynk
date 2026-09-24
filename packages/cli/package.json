@@ -1,0 +1,59 @@
+{
+  "name": "rynk",
+  "version": "0.3.0",
+  "description": "Run any project. Get a live link. Zero-config local hosting for any language or framework.",
+  "type": "module",
+  "bin": {
+    "rynk": "./dist/bin.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "keywords": [
+    "hosting",
+    "localhost",
+    "lan",
+    "dev-server",
+    "deploy",
+    "runtime",
+    "zero-config",
+    "tunnel"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b -w",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@rynk/config": "workspace:*",
+    "@rynk/core": "workspace:*",
+    "@rynk/daemon": "workspace:*",
+    "@rynk/detector": "workspace:*",
+    "@rynk/network": "workspace:*",
+    "@rynk/popup": "workspace:*",
+    "@rynk/ports": "workspace:*",
+    "@rynk/process": "workspace:*",
+    "@rynk/sdk": "workspace:*",
+    "chalk": "^5.4.1",
+    "commander": "^12.1.0",
+    "execa": "^9.5.2",
+    "ora": "^8.1.1",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/qrcode-terminal": "^0.12.2"
+  },
+  "license": "MIT"
+}

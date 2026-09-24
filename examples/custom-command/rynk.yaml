@@ -1,0 +1,9 @@
+# A project Rynk can't detect on its own: tell it how to start.
+name: custom-command
+start:
+  command: ./serve.sh
+server:
+  port: auto
+health:
+  type: http
+  path: /

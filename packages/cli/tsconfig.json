@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
+  "include": ["src"],
+  "references": [
+    { "path": "../core" }, { "path": "../config" }, { "path": "../detector" }, { "path": "../network" },
+    { "path": "../ports" }, { "path": "../process" }, { "path": "../sdk" }, { "path": "../popup" }, { "path": "../../services/daemon" }
+  ]
+}

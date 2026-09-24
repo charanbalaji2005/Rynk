@@ -1,0 +1,51 @@
+{
+  "name": "@rynk/daemon",
+  "version": "0.3.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./main": "./dist/main.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b -w",
+    "start": "node dist/main.js",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@fastify/websocket": "^11.0.1",
+    "@rynk/access": "workspace:*",
+    "@rynk/config": "workspace:*",
+    "@rynk/core": "workspace:*",
+    "@rynk/database": "workspace:*",
+    "@rynk/detector": "workspace:*",
+    "@rynk/discovery": "workspace:*",
+    "@rynk/events": "workspace:*",
+    "@rynk/exposure": "workspace:*",
+    "@rynk/health": "workspace:*",
+    "@rynk/logger": "workspace:*",
+    "@rynk/network": "workspace:*",
+    "@rynk/plugins": "workspace:*",
+    "@rynk/ports": "workspace:*",
+    "@rynk/process": "workspace:*",
+    "@rynk/proxy": "workspace:*",
+    "@rynk/runtime": "workspace:*",
+    "@rynk/sdk": "workspace:*",
+    "@rynk/security": "workspace:*",
+    "fastify": "^5.2.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13"
+  },
+  "license": "MIT"
+}

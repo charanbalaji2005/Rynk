@@ -1,0 +1,13 @@
+{
+  "name": "@rynk/discovery",
+  "version": "0.3.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "files": ["dist"],
+  "scripts": { "build": "tsc -b", "dev": "tsc -b -w", "clean": "rm -rf dist *.tsbuildinfo" },
+  "dependencies": { "@rynk/core": "workspace:*", "@rynk/network": "workspace:*", "@rynk/security": "workspace:*", "multicast-dns": "^7.2.5" },
+  "devDependencies": { "@types/multicast-dns": "^7.2.4" },
+  "license": "MIT"
+}

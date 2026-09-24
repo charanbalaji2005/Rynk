@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/core" }, { "path": "../../packages/config" }, { "path": "../../packages/database" },
+    { "path": "../../packages/detector" }, { "path": "../../packages/events" }, { "path": "../../packages/exposure" },
+    { "path": "../../packages/health" }, { "path": "../../packages/logger" }, { "path": "../../packages/network" },
+    { "path": "../../packages/plugins" }, { "path": "../../packages/ports" }, { "path": "../../packages/process" },
+    { "path": "../../packages/proxy" }, { "path": "../../packages/runtime" }, { "path": "../../packages/sdk" },
+    { "path": "../../packages/security" }, { "path": "../../packages/access" }, { "path": "../../packages/discovery" }
+  ]
+}
