@@ -143,7 +143,13 @@ export class AccessGateway {
   async stop(): Promise<void> {
     if (this.sweepTimer) clearInterval(this.sweepTimer);
     this.table.clear();
-    for (const s of this.sockets) s.destroy();
+    for (const s of this.sockets) {
+      if (typeof (s as { resetAndDestroy?: () => void }).resetAndDestroy === "function") {
+        (s as { resetAndDestroy: () => void }).resetAndDestroy();
+      } else {
+        s.destroy();
+      }
+    }
     this.agent.destroy();
     await new Promise<void>((r) => (this.server ? this.server.close(() => r()) : r()));
     this.server = undefined;

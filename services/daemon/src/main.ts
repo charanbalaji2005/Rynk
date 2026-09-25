@@ -85,7 +85,10 @@ export async function startDaemon(opts: { foregroundLogs?: boolean } = {}) {
   const plugins = new PluginManager({ detectors, runtimes, exposures }, logger.child("plugins"));
   await plugins.loadGlobal();
 
-  const ports = new PortAllocator(store.portStore());
+  const ports = new PortAllocator(store.portStore(), [
+    envPort("RYNK_PORT_MIN", DEFAULTS.portRangeStart),
+    envPort("RYNK_PORT_MAX", DEFAULTS.portRangeEnd),
+  ]);
   // Apps listen on loopback ports from a separate range; only the gateway's share port faces the network.
   const appPorts = new PortAllocator(new MemoryPortStore(), [envPort("RYNK_APP_PORT_MIN", 41000), envPort("RYNK_APP_PORT_MAX", 41999)]);
   const network = new NetworkWatcher(bus);

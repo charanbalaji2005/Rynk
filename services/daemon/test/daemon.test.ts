@@ -229,8 +229,11 @@ describe("deployment lifecycle (real processes)", () => {
 
   it("reuses the same port on the next start (sticky)", async () => {
     const r = await api("POST", "/api/deployments", { root, install: false, wait: true });
-    expect(r.body.deployment.port).toBe(port);
-    await api("POST", `/api/projects/${projectId}/stop`, {});
+    try {
+      expect(r.body.deployment.port).toBe(port);
+    } finally {
+      await api("POST", `/api/projects/${projectId}/stop`, {});
+    }
   });
 });
 

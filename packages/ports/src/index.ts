@@ -10,7 +10,7 @@ export function canBind(port: number, host: string): Promise<boolean> {
       // An address family this machine doesn't support can't conflict.
       resolve(e.code === "EAFNOSUPPORT" || e.code === "EADDRNOTAVAIL");
     });
-    srv.listen({ port, host, exclusive: true }, () => srv.close(() => resolve(true)));
+    srv.listen({ port, host, exclusive: true, ...(host === "::" ? { ipv6Only: true } : {}) }, () => srv.close(() => resolve(true)));
   });
 }
 
@@ -112,6 +112,8 @@ export class PortAllocator {
       const mine = [...this.reserved].find(([, id]) => id === projectId)?.[0];
       if (mine !== undefined && (preferred === undefined || preferred === mine)) return mine;
 
+      const last = this.sticky.get(projectId);
+
       const tryPort = async (p: number) => {
         if (p < 1 || p > 65535) return false;
         const holder = this.reserved.get(p);
@@ -119,8 +121,19 @@ export class PortAllocator {
         return this.probe(p);
       };
 
+      const tryPortWithGrace = async (p: number) => {
+        // If this project was previously on this exact port, give the OS kernel
+        // a brief grace period (up to 200ms) to finish releasing the socket after teardown.
+        const retries = last === p ? 4 : 0;
+        for (let i = 0; i <= retries; i++) {
+          if (await tryPort(p)) return true;
+          if (i < retries) await new Promise((r) => setTimeout(r, 50));
+        }
+        return false;
+      };
+
       if (preferred !== undefined) {
-        if (await tryPort(preferred)) return preferred;
+        if (await tryPortWithGrace(preferred)) return preferred;
         if (strict) {
           throw new RynkError("PORT_UNAVAILABLE", `Port ${preferred} is already in use.`, {
             causes: [this.reserved.get(preferred) ? "Another Rynk project is using it." : "Another program on this machine is using it."],
@@ -129,8 +142,7 @@ export class PortAllocator {
           });
         }
       }
-      const last = this.sticky.get(projectId);
-      if (last !== undefined && last !== preferred && (await tryPort(last))) return last;
+      if (last !== undefined && last !== preferred && (await tryPortWithGrace(last))) return last;
 
       // Scan upward from the preferred port (keeps 5173 → 5174 intuitive), then the whole range.
       const start = preferred ?? this.range[0];

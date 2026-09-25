@@ -35,6 +35,8 @@ function node(name: string, base: number) {
       RYNK_DISCOVERY: "udp",
       RYNK_DISCOVERY_PORT: String(DISCOVERY_PORT),
       ...(process.platform !== "win32" ? { RYNK_DISCOVERY_INTERFACES: "127.0.0.1" } : {}),
+      RYNK_PORT_MIN: String(base + 10),
+      RYNK_PORT_MAX: String(base + 99),
       RYNK_APP_PORT_MIN: String(base + 100),
       RYNK_APP_PORT_MAX: String(base + 199),
       RYNK_POPUP: "off",
@@ -110,7 +112,7 @@ let share = "";
 
 describe.skipIf(!built)("rynk end to end (real CLI, real daemons)", () => {
   beforeAll(async () => {
-    const r = await json(A, ["start", "--lan", "--max-users", "10", "--non-interactive", "--no-install"], appDir);
+    const r = await json(A, ["start", "--lan", "--max-users", "10", "--non-interactive", "--no-install", "--port", String(Number(A.env.RYNK_DAEMON_PORT) + 10)], appDir);
     expect(r.status).toBe("live");
     share = r.url;
   }, 120_000);
