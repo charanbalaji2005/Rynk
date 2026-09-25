@@ -1,7 +1,7 @@
 import path from "node:path";
 import ora, { type Ora } from "ora";
 import qrcode from "qrcode-terminal";
-import { RynkError, STAGE_LABELS, type ClientSession, type DeploymentURLs, type LogEntry, type StartRequest } from "@rynk/core";
+import { canonicalPath, RynkError, STAGE_LABELS, type ClientSession, type DeploymentURLs, type LogEntry, type StartRequest } from "@rynk/core";
 import { openPopup, qrMatrix, runtimeFromChoice, RUNTIME_CHOICES, type PopupInit, type PopupSession, type PopupSettings } from "@rynk/popup";
 import type { DeploymentView, EventMessage, Plan, RynkClient } from "@rynk/sdk";
 import { ensureDaemon } from "./daemon-control.js";
@@ -55,7 +55,7 @@ export function buildRequest(root: string, o: UpOptions, foreground: boolean): S
     env[kv.slice(0, i)] = kv.slice(i + 1);
   }
   return {
-    root: path.resolve(root),
+    root: canonicalPath(root),
     foreground,
     ...(o.cmd ? { command: o.cmd } : {}),
     ...(port ? { port } : {}),

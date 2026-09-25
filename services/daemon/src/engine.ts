@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   assertTransition,
+  canonicalPath,
   isTerminal,
   newId,
   projectIdFor,
@@ -107,7 +108,7 @@ export class DeploymentEngine {
   // ── lifecycle API ─────────────────────────────────────────
 
   async deploy(req: DeployRequest): Promise<{ deploymentId: string; projectId: string; existing?: boolean }> {
-    const root = path.resolve(req.root);
+    const root = canonicalPath(req.root);
     if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
       throw new RynkError("NOT_FOUND", `Directory not found: ${root}`);
     }
@@ -321,7 +322,7 @@ export class DeploymentEngine {
 
   /** Dry run: what would Rynk do in this directory? Nothing is started or reserved. */
   async plan(root: string, cli: DeployRequest | { root: string } = { root }) {
-    const abs = path.resolve(root);
+    const abs = canonicalPath(root);
     const yaml = loadRynkYaml(abs)?.config ?? null;
     await this.d.plugins.loadForProject(abs, yaml);
     const req = cli as DeployRequest;
@@ -561,6 +562,7 @@ export class DeploymentEngine {
     await this.persist(ld, { port: ld.sharePort ?? ld.port });
 
     await this.transition(ld, "LIVE");
+    ld.gateway?.setAvailable(true);
     await this.hostingUpdate(ld, { status: "live" });
     ld.liveAt = Date.now();
     ld.error = undefined;
@@ -621,7 +623,6 @@ export class DeploymentEngine {
       this.warn(ld, "[DIRECT / UNMANAGED] Compose service publishes port directly. Rynk access controls (maxUsers, client tracking, disconnect, invite tokens, rate limiting) do not apply to direct ports.");
     } else if (ld.gateway) {
       ld.gateway.setTarget(target);
-      ld.gateway.setAvailable(true);
     } else {
       const listenHost = this.bindHost(p);
       const preferred = p.port ?? p.defaultPort ?? (ld.port !== ld.allocatedPort ? undefined : 3000);
@@ -639,6 +640,7 @@ export class DeploymentEngine {
           },
           onDenied: (reason, clientAddress) => this.d.bus.emit("access.denied", { projectId: ld.projectId, deploymentId: ld.id, reason, clientAddress }),
         });
+        g.setAvailable(false);
         try {
           await g.start();
           gateway = g;
@@ -956,7 +958,7 @@ export class DeploymentEngine {
   }
 
   private async find(idOrName: string): Promise<Live | undefined> {
-    const direct = this.live.get(idOrName) ?? [...this.live.values()].find((l) => l.id === idOrName || l.project?.name === idOrName || l.root === idOrName);
+    const direct = this.live.get(idOrName) ?? [...this.live.values()].find((l) => l.id === idOrName || l.project?.name === idOrName || l.root === idOrName || l.root === canonicalPath(idOrName));
     if (direct) return direct;
     const p = await this.d.store.getProject(idOrName);
     return p ? this.live.get(p.id) : undefined;

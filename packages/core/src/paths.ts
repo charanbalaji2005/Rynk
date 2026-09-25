@@ -1,5 +1,20 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+/**
+ * Return the canonical, real path of a project root directory.
+ * Resolves symlinks (e.g. macOS /var -> /private/var), normalizes
+ * Windows drive letters and casing, and falls back to path.resolve()
+ * if the path does not exist on disk yet.
+ */
+export function canonicalPath(dir: string): string {
+  try {
+    return fs.realpathSync.native(path.resolve(dir));
+  } catch {
+    return path.resolve(dir);
+  }
+}
 
 /**
  * Platform-correct application data locations. Never hard-code user dirs.

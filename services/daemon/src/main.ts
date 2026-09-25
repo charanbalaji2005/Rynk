@@ -122,7 +122,15 @@ export async function startDaemon(opts: { foregroundLogs?: boolean } = {}) {
   if (discoveryMode !== "off") {
     nodeServer = new NodeInfoServer(selfNode, { port: envPort("RYNK_NODE_PORT", DEFAULT_NODE_PORT), identity });
     const providers: DiscoveryProvider[] = [];
-    if (discoveryMode === "all" || discoveryMode === "udp") providers.push(new UdpDiscovery({ port: envPort("RYNK_DISCOVERY_PORT", DEFAULT_UDP_PORT) }));
+    const discIfaces = process.env.RYNK_DISCOVERY_INTERFACES
+      ? () => process.env.RYNK_DISCOVERY_INTERFACES!.split(",").map((s) => s.trim()).filter(Boolean)
+      : undefined;
+    if (discoveryMode === "all" || discoveryMode === "udp") {
+      providers.push(new UdpDiscovery({
+        port: envPort("RYNK_DISCOVERY_PORT", DEFAULT_UDP_PORT),
+        ...(discIfaces ? { interfaces: discIfaces } : {}),
+      }));
+    }
     if (discoveryMode === "all" || discoveryMode === "mdns") providers.push(new MdnsDiscovery());
     registry = new NodeRegistry({
       providers,

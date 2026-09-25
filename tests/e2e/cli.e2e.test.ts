@@ -34,6 +34,7 @@ function node(name: string, base: number) {
       RYNK_NODE_PORT: String(base + 2),
       RYNK_DISCOVERY: "udp",
       RYNK_DISCOVERY_PORT: String(DISCOVERY_PORT),
+      ...(process.platform !== "win32" ? { RYNK_DISCOVERY_INTERFACES: "127.0.0.1" } : {}),
       RYNK_APP_PORT_MIN: String(base + 100),
       RYNK_APP_PORT_MAX: String(base + 199),
       RYNK_POPUP: "off",
@@ -177,7 +178,10 @@ describe.skipIf(!built)("rynk end to end (real CLI, real daemons)", () => {
       return r.status === 200 && r.body !== pidBefore ? r : undefined;
     }, 30_000);
     expect(back.body).toMatch(/^app \d+$/);
-    const s = await json(A, ["status", "frontend"]);
+    const s = await until(async () => {
+      const cur = await json(A, ["status", "frontend"]);
+      return cur.status === "live" ? cur : undefined;
+    }, 15_000);
     expect(s.url).toBe(share);
     expect(s.deployment.restartCount).toBeGreaterThanOrEqual(1);
   }, 40_000);

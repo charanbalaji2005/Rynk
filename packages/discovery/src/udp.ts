@@ -30,7 +30,11 @@ export class UdpDiscovery implements DiscoveryProvider {
     return this.opts.group ?? MULTICAST_GROUP;
   }
   private ifaces() {
-    return this.opts.interfaces?.() ?? listInterfaces().filter((i) => i.kind !== "virtual").map((i) => i.address);
+    const list = this.opts.interfaces?.() ?? listInterfaces().filter((i) => i.kind !== "virtual").map((i) => i.address);
+    if (process.platform !== "win32" && !this.opts.interfaces && !list.includes("127.0.0.1")) {
+      list.push("127.0.0.1");
+    }
+    return list;
   }
 
   async start() {

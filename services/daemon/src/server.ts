@@ -5,6 +5,7 @@ import type { WebSocket } from "ws";
 import { z } from "zod";
 import {
   accessUpdateSchema,
+  canonicalPath,
   disconnectRequestSchema,
   idParamSchema,
   inviteRequestSchema,
@@ -349,9 +350,10 @@ export async function createServer(d: ServerDeps): Promise<FastifyInstance> {
   // ── planning ───────────────────────────────────────────────
   const planHandler = async (q: z.infer<typeof planQuerySchema>) => {
     const { root, ...rest } = q;
+    const absRoot = canonicalPath(root);
     const request = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
     try {
-      const plan = await d.engine.plan(root, { root, ...request } as never);
+      const plan = await d.engine.plan(absRoot, { root: absRoot, ...request } as never);
       const ifaces = d.network.current();
       const chosen = (q.network && ifaces.find((i) => i.name.toLowerCase() === q.network!.toLowerCase() || i.address === q.network)) || primaryInterface(ifaces) || null;
       return {

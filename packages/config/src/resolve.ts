@@ -1,5 +1,6 @@
 import path from "node:path";
 import {
+  canonicalPath,
   parseCommand,
   projectIdFor,
   slugify,
@@ -41,7 +42,7 @@ export function resolveProject(input: {
   detection?: DetectionResult | null;
   packageName?: string;
 }): ProjectDefinition {
-  const root = path.resolve(input.root);
+  const root = canonicalPath(input.root);
   const cli = input.cli ?? {};
   const yaml = input.yaml ?? {};
   const det = input.detection ?? null;

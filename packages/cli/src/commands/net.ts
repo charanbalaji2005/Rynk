@@ -1,5 +1,5 @@
 import net from "node:net";
-import { formatDuration, RynkError } from "@rynk/core";
+import { canonicalPath, formatDuration, RynkError } from "@rynk/core";
 import type { RynkClient } from "@rynk/sdk";
 import { connect, ensureDaemon } from "../daemon-control.js";
 import { box, c, healthText, json, runtimeLabel, shareUrl, stateBadge, sym, table, usersText } from "../ui.js";
@@ -193,8 +193,7 @@ export async function inspect(ref: string | undefined, o: { json?: boolean }): P
 /** `rynk plan`: show exactly what would happen, without doing anything. */
 export async function plan(dir: string, o: { json?: boolean; runtime?: string; cmd?: string; port?: string; name?: string; network?: string; local?: boolean; maxUsers?: string }): Promise<number> {
   const client = await ensureDaemon({ quiet: true });
-  const path = await import("node:path");
-  const pl = await client.plan(path.resolve(dir), { runtime: o.runtime, command: o.cmd, port: o.port, name: o.name, network: o.network, exposure: o.local ? "local" : undefined, maxUsers: o.maxUsers });
+  const pl = await client.plan(canonicalPath(dir), { runtime: o.runtime, command: o.cmd, port: o.port, name: o.name, network: o.network, exposure: o.local ? "local" : undefined, maxUsers: o.maxUsers });
   if (o.json) return json(pl), pl.project ? 0 : 1;
   if (!pl.project) {
     process.stdout.write(`${sym.fail} ${pl.error?.message ?? "Nothing to host here."}\n`);

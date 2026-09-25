@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
-import { formatDuration, parseDuration, paths, RynkError, slugify, type LogEntry } from "@rynk/core";
+import { canonicalPath, formatDuration, parseDuration, paths, RynkError, slugify, type LogEntry } from "@rynk/core";
 import { loadRynkYaml, renderRynkYaml, resolveProject, CONFIG_FILES } from "@rynk/config";
 import { DetectorRegistry } from "@rynk/detector";
 import { toolVersion } from "@rynk/process";
@@ -14,7 +14,7 @@ import { box, c, healthText, json, metricsText, runtimeLabel, stateBadge, sym, t
 /** Resolve a project reference: explicit name/id, or the project in the cwd. */
 export async function projectRef(client: RynkClient, ref: string | undefined, cwd = process.cwd()): Promise<ProjectView> {
   if (ref) return client.project(ref);
-  const abs = path.resolve(cwd);
+  const abs = canonicalPath(cwd);
   const all = await client.projects();
   const match = all.find((p) => p.root === abs) ?? all.filter((p) => abs.startsWith(p.root + path.sep)).sort((a, b) => b.root.length - a.root.length)[0];
   if (!match) {

@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RynkNode } from "@rynk/core";
+import { listInterfaces } from "@rynk/network";
 import { loadIdentity, NodeInfoServer, NodeRegistry, parseAnnouncement, sanitizeNode, UdpDiscovery, type Announcement, type DiscoveryProvider } from "../src/index.js";
 
 const node = (id: string, name: string, rev = 1, apiPort = 7780): RynkNode => ({
@@ -165,7 +166,13 @@ describe("real transports", () => {
 
   it("two UDP nodes find each other and say goodbye", async () => {
     const port = 17_800 + Math.floor(Math.random() * 100);
-    const iface = () => ["127.0.0.1"];
+    const iface = () => {
+      if (process.platform === "win32") {
+        const lan = listInterfaces().filter((i) => i.kind !== "virtual").map((i) => i.address);
+        return lan.length ? lan : ["127.0.0.1"];
+      }
+      return ["127.0.0.1"];
+    };
     const a = new UdpDiscovery({ port, intervalMs: 200, interfaces: iface });
     const b = new UdpDiscovery({ port, intervalMs: 200, interfaces: iface });
     const seen: string[] = [];

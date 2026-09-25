@@ -1,13 +1,13 @@
 import crypto from "node:crypto";
-import path from "node:path";
+import { canonicalPath } from "./paths.js";
 
 export function newId(prefix = ""): string {
   return prefix + crypto.randomBytes(8).toString("hex");
 }
 
-/** Stable project id derived from its absolute root path. */
+/** Stable project id derived from its canonical root path. */
 export function projectIdFor(root: string): string {
-  return "prj_" + crypto.createHash("sha256").update(path.resolve(root)).digest("hex").slice(0, 16);
+  return "prj_" + crypto.createHash("sha256").update(canonicalPath(root)).digest("hex").slice(0, 16);
 }
 
 /** URL/DNS safe slug for routes and container names. */
