@@ -55,3 +55,14 @@ describe("popup decisions", () => {
     expect(custom).toMatchObject({ command: "./serve", runtime: "custom", exposure: "local", healthCheck: false });
   });
 });
+
+describe("buildProgram", () => {
+  it("registers ngrok-compatible http command", async () => {
+    const { buildProgram } = await import("../src/program.js");
+    const program = buildProgram();
+    const httpCmd = program.commands.find((c) => c.name() === "http");
+    expect(httpCmd).toBeDefined();
+    expect(httpCmd?.description()).toContain("forward a port like ngrok");
+  });
+});
+

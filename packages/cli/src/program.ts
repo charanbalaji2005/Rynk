@@ -59,14 +59,32 @@ export function buildProgram(): Command {
     .showSuggestionAfterError()
     .configureHelp({ sortSubcommands: false });
 
+  function normalizeTarget(dir: string, o: UpOptions): string {
+    const m = /^:?(\d{2,5})$/.exec(dir) ?? /^https?:\/\/(?:localhost|127\.0\.0\.1):(\d{2,5})\/?$/i.exec(dir);
+    if (m) {
+      if (!o.port) o.port = Number(m[1]);
+      return ".";
+    }
+    return dir;
+  }
+
   const hostAction = (mode: "foreground" | "detached") =>
-    action(async (dir: string, o: UpOptions) => up(dir, { ...o, ...program.opts() }, o.nonInteractive && mode === "foreground" ? "detached" : mode));
+    action(async (dir: string, o: UpOptions) => {
+      const targetDir = normalizeTarget(dir, o);
+      return up(targetDir, { ...o, ...program.opts() }, o.nonInteractive && mode === "foreground" ? "detached" : mode);
+    });
 
-  hostingOptions(program.argument("[dir]", "project directory", ".")).action(hostAction("foreground"));
+  hostingOptions(program.argument("[dir]", "project directory or port (e.g. . or 3000)", ".")).action(hostAction("foreground"));
 
-  hostingOptions(program.command("start").description("host in the background (the daemon keeps it running)").argument("[dir]", "project directory", "."))
+  hostingOptions(program.command("http <port>").description("forward a port like ngrok (e.g. rynk http 3000)"))
+    .action(action(async (portArg: string, o: UpOptions) => {
+      o.port = portArg.replace(/^:/, "");
+      return up(".", { ...o, ...program.opts() }, o.nonInteractive ? "detached" : "foreground");
+    }));
+
+  hostingOptions(program.command("start").description("host in the background (the daemon keeps it running)").argument("[dir]", "project directory or port", "."))
     .action(hostAction("detached"));
-  hostingOptions(program.command("dev").description("host in the foreground; Ctrl+C stops it").argument("[dir]", "project directory", "."))
+  hostingOptions(program.command("dev").description("host in the foreground; Ctrl+C stops it").argument("[dir]", "project directory or port", "."))
     .action(hostAction("foreground"));
 
   program.command("stop").description("stop hosting (default: this directory)").argument("[project]").option("-a, --all", "stop everything")
@@ -118,9 +136,16 @@ export function buildProgram(): Command {
     .action(action(async (ref: string | undefined, o: { all?: boolean }) => m.hosting(ref, { ...o, ...program.opts() })));
   program.command("inspect").description("everything Rynk knows about a project").argument("[project]")
     .action(action(async (ref: string | undefined) => n.inspect(ref, program.opts())));
-  program.command("plan").description("show what Rynk would do here, without doing it").argument("[dir]", "project directory", ".")
+  program.command("plan").description("show what Rynk would do here, without doing it").argument("[dir]", "project directory or port", ".")
     .option("--runtime <runtime>").option("--cmd <command>").option("-p, --port <port>").option("-n, --name <name>").option("--network <name|ip>").option("--local").option("--max-users <n>")
-    .action(action(async (dir: string, o: Record<string, string | boolean>) => n.plan(dir, Object.assign({}, o, program.opts()) as never)));
+    .action(action(async (dir: string, o: Record<string, string | boolean>) => {
+      const m = /^:?(\d{2,5})$/.exec(dir) ?? /^https?:\/\/(?:localhost|127\.0\.0\.1):(\d{2,5})\/?$/i.exec(dir);
+      if (m?.[1]) {
+        if (!o.port) o.port = m[1];
+        dir = ".";
+      }
+      return n.plan(dir, Object.assign({}, o, program.opts()) as never);
+    }));
   program.command("doctor").description("diagnose runtime, network and project problems").argument("[dir]", "project directory", ".")
     .action(action(async (dir: string) => doctor(dir, program.opts())));
 
