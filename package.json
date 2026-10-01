@@ -9,8 +9,8 @@
   },
   "type": "module",
   "scripts": {
-    "build": "turbo run build",
-    "build:tsc": "tsc -b tsconfig.build.json",
+    "build": "tsc -b tsconfig.build.json",
+    "build:turbo": "turbo run build",
     "dev": "turbo run dev --parallel",
     "test": "vitest run",
     "test:watch": "vitest",
