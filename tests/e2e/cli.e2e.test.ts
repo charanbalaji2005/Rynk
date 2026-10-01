@@ -63,19 +63,36 @@ const APP = `
 const http = require("node:http");
 const port = Number(process.env.PORT);
 const server = http.createServer((req, res) => {
+  req.on("error", () => {});
+  res.on("error", () => {});
   if (req.url === "/crash") { res.end("bye"); setTimeout(() => process.exit(3), 20); return; }
   if (req.url === "/sse") {
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
     res.write("data: first\\n\\n");
-    const t = setInterval(() => res.write("data: tick\\n\\n"), 200);
-    req.on("close", () => clearInterval(t));
+    const t = setInterval(() => {
+      try { res.write("data: tick\\n\\n"); } catch {}
+    }, 200);
+    req.on("close", () => {
+      clearInterval(t);
+      try { res.end(); } catch {}
+    });
     return;
   }
   res.end("app " + process.pid);
 });
+server.on("clientError", (_err, socket) => {
+  socket.on("error", () => {});
+  socket.destroy();
+});
+server.on("connection", (socket) => {
+  socket.on("error", () => {});
+});
 server.on("upgrade", (req, socket) => {
+  socket.on("error", () => {});
   socket.write("HTTP/1.1 101 Switching Protocols\\r\\nUpgrade: websocket\\r\\nConnection: Upgrade\\r\\n\\r\\n");
-  socket.on("data", (d) => socket.write(d));
+  socket.on("data", (d) => {
+    try { socket.write(d); } catch {}
+  });
 });
 server.listen(port, process.env.HOST || "127.0.0.1", () => console.log("listening on http://localhost:" + port));
 `;
@@ -158,15 +175,26 @@ describe.skipIf(!built)("rynk end to end (real CLI, real daemons)", () => {
   it("streams SSE and passes WebSockets through the share link", async () => {
     const u = new URL(share);
     const first = await new Promise<string>((resolve) => {
-      const req = http.get({ host: u.hostname, port: u.port, path: "/sse", headers: { "user-agent": "sse" } }, (res) => res.once("data", (d) => (resolve(String(d)), req.destroy())));
+      const req = http.get({ host: u.hostname, port: u.port, path: "/sse", headers: { "user-agent": "sse" } }, (res) => {
+        res.on("error", () => {});
+        res.once("data", (d) => {
+          resolve(String(d));
+          try { req.destroy(); } catch {}
+        });
+      });
+      req.on("error", () => {});
     });
     expect(first).toContain("data: first");
     const echoed = await new Promise<string>((resolve) => {
       const s = net.connect(Number(u.port), u.hostname, () => s.write("GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nUser-Agent: ws\r\n\r\n"));
+      s.on("error", () => {});
       let stage = 0;
       s.on("data", (d) => {
         if (stage++ === 0) s.write("hello-over-gateway");
-        else (resolve(String(d)), s.destroy());
+        else {
+          resolve(String(d));
+          try { s.destroy(); } catch {}
+        }
       });
     });
     expect(echoed).toBe("hello-over-gateway");

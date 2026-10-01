@@ -122,10 +122,14 @@ export class AccessGateway {
     server.on("upgrade", (req, socket, head) => this.upgrade(req, socket as net.Socket, head));
     server.maxConnections = this.limits.maxConnections;
     server.on("connection", (s) => {
+      s.on("error", () => {});
       this.sockets.add(s);
       s.on("close", () => this.sockets.delete(s));
     });
-    server.on("clientError", (_e, socket) => socket.destroy());
+    server.on("clientError", (_e, socket) => {
+      socket.on("error", () => {});
+      socket.destroy();
+    });
     server.keepAliveTimeout = 5_000;
     server.headersTimeout = 20_000;
     await new Promise<void>((resolve, reject) => {
@@ -144,11 +148,8 @@ export class AccessGateway {
     if (this.sweepTimer) clearInterval(this.sweepTimer);
     this.table.clear();
     for (const s of this.sockets) {
-      if (typeof (s as { resetAndDestroy?: () => void }).resetAndDestroy === "function") {
-        (s as { resetAndDestroy: () => void }).resetAndDestroy();
-      } else {
-        s.destroy();
-      }
+      s.on("error", () => {});
+      s.destroy();
     }
     this.agent.destroy();
     await new Promise<void>((r) => (this.server ? this.server.close(() => r()) : r()));
@@ -292,7 +293,16 @@ export class AccessGateway {
       finished = true;
       this.table.endStream(session);
     };
-    res.on("close", done);
+    res.on("close", () => {
+      done();
+      if (!res.writableEnded) {
+        try { upstream.destroy(); } catch {}
+      }
+    });
+    res.on("error", () => {
+      done();
+      try { upstream.destroy(); } catch {}
+    });
 
     const upstream = http.request(
       { host: this.target.host, port: this.target.port, method: req.method, path: req.url, headers, agent: this.agent },
@@ -310,6 +320,7 @@ export class AccessGateway {
       },
     );
     upstream.on("error", () => {
+      done();
       if (!res.headersSent) this.sendPage(req, res, 502, "unavailable");
       else res.destroy();
     });
@@ -331,9 +342,14 @@ export class AccessGateway {
 
   // ── WebSocket / upgrade passthrough (HMR, live reload, app sockets) ──
   private upgrade(req: http.IncomingMessage, client: net.Socket, head: Buffer) {
+    client.on("error", () => {});
     const url = new URL(req.url ?? "/", "http://gateway");
     const reject = (status: number, text: string) => {
-      client.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
+      try {
+        client.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
+      } catch {
+        try { client.destroy(); } catch {}
+      }
     };
     if (isSensitivePath(url.pathname)) return reject(404, "Not Found");
     if (!this.limiter.take(req.socket.remoteAddress ?? "unknown")) return reject(429, "Too Many Requests");
@@ -361,12 +377,18 @@ export class AccessGateway {
       upstream.pipe(client);
       client.pipe(upstream);
     });
-    const handle = { destroy: () => { client.destroy(); upstream.destroy(); } };
+    upstream.on("error", () => {});
+    const handle = {
+      destroy: () => {
+        try { client.destroy(); } catch {}
+        try { upstream.destroy(); } catch {}
+      },
+    };
     this.table.attachSocket(session, handle);
     const cleanup = () => {
       this.table.detachSocket(session, handle);
-      client.destroy();
-      upstream.destroy();
+      try { client.destroy(); } catch {}
+      try { upstream.destroy(); } catch {}
     };
     upstream.on("error", cleanup);
     client.on("error", cleanup);

@@ -9,23 +9,38 @@ const seenCookies: Array<string | undefined> = [];
 
 beforeAll(async () => {
   app = http.createServer((req, res) => {
+    req.on("error", () => {});
+    res.on("error", () => {});
     seenCookies.push(req.headers.cookie);
     if (req.url === "/sse") {
       res.writeHead(200, { "content-type": "text/event-stream" });
       res.write("data: hi\n\n");
+      req.on("close", () => {
+        try { res.end(); } catch {}
+      });
       return; // keep open
     }
     res.setHeader("set-cookie", "app=1; Path=/");
     res.end(`app:${req.url}:${req.headers["x-forwarded-for"]}`);
   });
+  app.on("clientError", (_err, socket) => {
+    socket.destroy();
+  });
+  app.on("connection", (socket) => {
+    socket.on("error", () => {});
+  });
   app.on("upgrade", (_req, socket) => {
+    socket.on("error", () => {});
     socket.write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n");
     socket.on("data", (d) => socket.write(d)); // echo
   });
   await new Promise<void>((r) => app.listen(0, "127.0.0.1", () => r()));
   appPort = (app.address() as net.AddressInfo).port;
 });
-afterAll(() => app.close());
+afterAll(() => {
+  app.closeAllConnections?.();
+  app.close();
+});
 
 let gw: AccessGateway | undefined;
 afterEach(async () => {
@@ -110,7 +125,13 @@ describe("AccessGateway", () => {
   it("keeps a session active while a stream is open", async () => {
     await start({ maxUsers: 1, idleTimeoutMs: 100 });
     const req = http.get({ host: "127.0.0.1", port: gw!.port, path: "/sse", headers: { "user-agent": "streamer" } });
-    await new Promise((r) => req.once("response", r));
+    req.on("error", () => {});
+    await new Promise((r) =>
+      req.once("response", (res) => {
+        res.on("error", () => {});
+        r(res);
+      }),
+    );
     await new Promise((r) => setTimeout(r, 250));
     expect(gw!.stats().active).toBe(1);
     expect((await browser("other")()).status).toBe(503);
@@ -165,6 +186,7 @@ describe("AccessGateway", () => {
   it("passes WebSocket upgrades through and tracks them as open connections", async () => {
     await start({ maxUsers: 3 });
     const sock = net.connect(gw!.port, "127.0.0.1");
+    sock.on("error", () => {});
     await new Promise((r) => sock.once("connect", r));
     sock.write("GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nUser-Agent: ws\r\n\r\n");
     const first = await new Promise<string>((r) => sock.once("data", (d) => r(String(d))));
@@ -174,6 +196,7 @@ describe("AccessGateway", () => {
     expect(gw!.sessions()[0]!.openConnections).toBe(1);
     gw!.table.end(gw!.sessions()[0]!.sessionId);
     await new Promise((r) => sock.once("close", r));
+    sock.destroy();
   });
 
   it("answers Rynk's own reachability probe without creating a session", async () => {
@@ -224,19 +247,44 @@ describe("abuse protection", () => {
 
   it("caps concurrent requests per session", async () => {
     await startLimited({ maxConcurrentPerSession: 2 });
-    const open = [0, 1].map(() => http.get({ host: "127.0.0.1", port: gw!.port, path: "/sse", headers: { "user-agent": "same" } }));
-    await Promise.all(open.map((r) => new Promise((res) => r.once("response", res))));
+    const open = [0, 1].map(() => {
+      const r = http.get({ host: "127.0.0.1", port: gw!.port, path: "/sse", headers: { "user-agent": "same" } });
+      r.on("error", () => {});
+      return r;
+    });
+    await Promise.all(
+      open.map(
+        (r) =>
+          new Promise((res) =>
+            r.once("response", (incoming) => {
+              incoming.on("error", () => {});
+              res(incoming);
+            }),
+          ),
+      ),
+    );
     expect((await browser("same")("/x")).status).toBe(429);
     open.forEach((r) => r.destroy());
   });
 
   it("caps WebSockets per session", async () => {
     await startLimited({ maxSocketsPerSession: 1 });
-    const upgrade = () => new Promise<string>((resolve) => {
-      const s = net.connect(gw!.port, "127.0.0.1", () => s.write("GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nUser-Agent: wsx\r\n\r\n"));
-      s.once("data", (d) => resolve(String(d).split("\r\n")[0]!));
-    });
+    const sockets: net.Socket[] = [];
+    const upgrade = () =>
+      new Promise<string>((resolve) => {
+        const s = net.connect(gw!.port, "127.0.0.1", () =>
+          s.write("GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nUser-Agent: wsx\r\n\r\n"),
+        );
+        sockets.push(s);
+        s.on("error", () => {});
+        s.once("data", (d) => resolve(String(d).split("\r\n")[0]!));
+      });
     expect(await upgrade()).toContain("101");
     expect(await upgrade()).toContain("429");
+    sockets.forEach((s) => {
+      try {
+        s.destroy();
+      } catch {}
+    });
   });
 });

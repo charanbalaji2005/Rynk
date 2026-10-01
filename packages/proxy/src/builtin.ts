@@ -145,22 +145,30 @@ export class BuiltinProxy implements ProxyProvider {
 
   /** WebSocket / HMR passthrough via raw socket piping. */
   private upgrade = (req: http.IncomingMessage, socket: net.Socket, head: Buffer) => {
+    socket.on("error", () => {});
     const m = this.match(req);
-    if (!m || (!m.route.lan && !isLoopback(req.socket.remoteAddress))) return socket.destroy();
+    if (!m || (!m.route.lan && !isLoopback(req.socket.remoteAddress))) {
+      socket.destroy();
+      return;
+    }
     const up = net.connect(m.route.targetPort, m.route.targetHost, () => {
       const headers = Object.entries(req.headers)
         .filter(([k]) => k !== "x-forwarded-for")
         .flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => `${k}: ${x}`) : [`${k}: ${v}`]));
       up.write(`${req.method} ${m.path} HTTP/1.1\r\n${headers.join("\r\n")}\r\nx-forwarded-for: ${req.socket.remoteAddress}\r\n\r\n`);
       if (head.length) up.write(head);
-      socket.pipe(up).pipe(socket);
+      socket.pipe(up);
+      up.pipe(socket);
     });
+    up.on("error", () => {});
     const close = () => {
-      up.destroy();
-      socket.destroy();
+      try { up.destroy(); } catch {}
+      try { socket.destroy(); } catch {}
     };
     up.on("error", close);
     socket.on("error", close);
+    up.on("close", close);
+    socket.on("close", close);
   };
 
   async start(): Promise<void> {
@@ -168,8 +176,13 @@ export class BuiltinProxy implements ProxyProvider {
     const srv = http.createServer(this.handle);
     srv.on("upgrade", this.upgrade);
     srv.on("connection", (s) => {
+      s.on("error", () => {});
       this.sockets.add(s);
       s.on("close", () => this.sockets.delete(s));
+    });
+    srv.on("clientError", (_e, socket) => {
+      socket.on("error", () => {});
+      socket.destroy();
     });
     srv.headersTimeout = 30_000;
     srv.requestTimeout = 0; // streaming responses (SSE) must not be cut off
@@ -181,7 +194,10 @@ export class BuiltinProxy implements ProxyProvider {
   }
 
   async stop(): Promise<void> {
-    for (const s of this.sockets) s.destroy();
+    for (const s of this.sockets) {
+      s.on("error", () => {});
+      s.destroy();
+    }
     await new Promise<void>((r) => (this.server ? this.server.close(() => r()) : r()));
     this.server = undefined;
   }
