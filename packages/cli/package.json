@@ -1,6 +1,6 @@
 {
   "name": "@rynk/cli",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Run any project. Get a live link. Zero-config local hosting for any language or framework.",
   "type": "module",
   "bin": {
