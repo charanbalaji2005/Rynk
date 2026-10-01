@@ -2,7 +2,13 @@ import { cmd, type BindingStrategy, type CommandSpec, type DetectionResult } fro
 import type { Detector } from "../detector.js";
 import { isWindows, type ProjectContext } from "../context.js";
 
-const SOURCE_CANDIDATES = ["main.py", "app.py", "server.py", "api.py", "run.py", "wsgi.py", "asgi.py", "app/main.py", "src/main.py", "src/app.py", "streamlit_app.py"];
+const SOURCE_CANDIDATES = [
+  "main.py", "app.py", "server.py", "api.py", "run.py", "wsgi.py", "asgi.py",
+  "app/main.py", "src/main.py", "src/app.py", "streamlit_app.py",
+  "dashboard/app.py", "dashboard/main.py", "dashboard/server.py",
+  "web/app.py", "web/main.py", "web/server.py",
+  "scripts/server.py", "scripts/serve.py", "scripts/main.py",
+];
 
 function venvPython(ctx: ProjectContext): string | null {
   for (const dir of [".venv", "venv", "env"]) {
@@ -120,7 +126,7 @@ export const pythonDetector: Detector = {
       warnings.push(`No known framework; running ${loosePy} with PORT set and discovering the port from output.`);
       confidence = 0.6;
     } else {
-      warnings.push("Python project found but no entry point (main.py/app.py).");
+      warnings.push("Python project found but no web entry point (main.py/app.py/server.py). Run with: rynk --cmd \"python <script.py>\" --port <port>, or forward an existing port with: rynk http <port>");
       confidence = 0.3;
     }
 

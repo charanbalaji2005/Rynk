@@ -82,8 +82,9 @@ export function resolveProject(input: {
     throw new RynkError("DETECTION_FAILED", "Rynk couldn't work out how to start this project.", {
       causes: det?.warnings ?? ["No recognised project files were found."],
       suggestions: [
-        'rynk start --cmd "<your start command>" --port <port>',
-        "rynk init   # create a rynk.yaml you can edit",
+        'rynk http <port>                                 (forward a running server like ngrok)',
+        'rynk start --cmd "<your start command>" --port <port> (run your custom command)',
+        "rynk init                                        (create a rynk.yaml file you can edit)",
       ],
     });
   }

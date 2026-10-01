@@ -11,7 +11,8 @@
   "scripts": {
     "build": "tsc -b tsconfig.build.json",
     "build:turbo": "turbo run build",
-    "dev": "turbo run dev --parallel",
+    "dev": "tsc -b tsconfig.build.json -w",
+    "dev:turbo": "turbo run dev --parallel",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b tsconfig.build.json --pretty",
